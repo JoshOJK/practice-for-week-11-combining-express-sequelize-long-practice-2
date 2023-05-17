@@ -2,16 +2,17 @@
 const express = require('express');
 const router = express.Router();
 
+
 /**
  * BASIC PHASE 1, Step A - Import model
  */
-// Your code here
+const {Tree} = require('../db/models')
 
 /**
  * INTERMEDIATE BONUS PHASE 1 (OPTIONAL), Step A:
  *   Import Op to perform comparison operations in WHERE clauses
  **/
-// Your code here
+
 
 /**
  * BASIC PHASE 1, Step B - List of all trees in the database
@@ -24,12 +25,13 @@ const router = express.Router();
  *   - Ordered by the heightFt from tallest to shortest
  */
 router.get('/', async (req, res, next) => {
-    let trees = [];
+    let trees = await Tree.findAll({order:[['heightFt', 'DESC']]});
 
-    // Your code here
 
     res.json(trees);
 });
+
+
 
 /**
  * BASIC PHASE 1, Step C - Retrieve one tree with the matching id
@@ -41,10 +43,10 @@ router.get('/', async (req, res, next) => {
  *   - Properties: id, tree, location, heightFt, groundCircumferenceFt
  */
 router.get('/:id', async (req, res, next) => {
-    let tree;
-
+        let tree;
     try {
-        // Your code here
+        let id = req.params.id
+        tree = await Tree.findByPk(id)
 
         if (tree) {
             res.json(tree);
@@ -82,9 +84,18 @@ router.get('/:id', async (req, res, next) => {
  */
 router.post('/', async (req, res, next) => {
     try {
+        const newTree = await Tree.create({
+            tree: req.body.name,
+            location: req.body.location,
+            heightFt: req.body.height,
+            groundCircumferenceFt:req.body.size
+
+        })
+
         res.json({
             status: "success",
             message: "Successfully created new tree",
+            data: newTree
         });
     } catch(err) {
         next({
@@ -117,15 +128,23 @@ router.post('/', async (req, res, next) => {
  */
 router.delete('/:id', async (req, res, next) => {
     try {
+        let id = req.params.id
+        const deleteTree = await Tree.findByPk(id)
+        if(!deleteTree){
+            throw new Error()
+        }
+
+        await deleteTree.destroy()
+
         res.json({
             status: "success",
             message: `Successfully removed tree ${req.params.id}`,
         });
     } catch(err) {
         next({
-            status: "error",
+            status: "not-found",
             message: `Could not remove tree ${req.params.id}`,
-            details: err.errors ? err.errors.map(item => item.message).join(', ') : err.message
+            details: 'Tree not found'
         });
     }
 });
@@ -164,14 +183,47 @@ router.delete('/:id', async (req, res, next) => {
  *   - Property: details
  *     - Value: Tree not found
  */
+//
 router.put('/:id', async (req, res, next) => {
     try {
-        // Your code here
+        const {id, name, location, height, size} = req.body;
+        if(!req.params.id || !req.body.id || req.params.id !== req.body.id.toString()) {
+            next({
+                status: "error",
+                message: 'Could not update tree',
+                details: `${req.params.id} does not match ${req.body.id}`
+            })
+        } else {
+        const updatedTree = await Tree.findByPk(id)
+           if(updatedTree) {
+                if(name && location && height && size) {
+                    updatedTree.tree = name;
+                    updatedTree.location = location;
+                    updatedTree.heightFt = height;
+                    updatedTree.groundCircumferenceFt = size;
+                }
+                  updatedTree.save()
+                  res.json({
+                    status:"success",
+                    message: "Successfully updated tree",
+                    data: updatedTree
+                })
+
+           }
+           else {
+            next({
+                status: "not-found",
+                message: `Could not update tree ${req.params.id}`,
+                details: 'Tree not found'
+            })
+           }
+    }
+
     } catch(err) {
         next({
             status: "error",
             message: 'Could not update new tree',
-            details: err.errors ? err.errors.map(item => item.message).join(', ') : err.message
+            details: err.errors ? err.errors.map(el => el.message).join(', ') : err.message
         });
     }
 });
